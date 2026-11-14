@@ -1,0 +1,104 @@
+// src/core/orchestrator.js
+
+const commander = require('commander');
+const puppeteer = require('puppeteer');
+const ethers = require('ethers');
+const fs = require('fs');
+const path = require('path');
+const child_process = require('child_process');
+const { exec } = child_process;
+const logger = require('./logger');
+
+// Define command-line arguments
+const program = new commander.Command('protection-browse');
+
+// Commander arguments for module selection and chaining
+program.command('reconnaissance')
+    .description('Execute reconnaissance tasks')
+    .action(() => {
+        logger.info('Starting reconnaissance pipeline...');
+        executeModule('reconnaissance');
+    });
+
+program.command('wallets')
+    .description('Perform wallet operations')
+    .action(() => {
+        logger.info('Starting wallet operations pipeline...');
+        executeModule('wallets');
+    });
+
+program.command('automation')
+    .description('Launch automation tasks')
+    .action(() => {
+        logger.info('Starting automation pipeline...');
+        executeModule('automation');
+    });
+
+program.parse(process.argv);
+
+// Function to execute modules
+async function executeModule(moduleName) {
+    const startTime = Date.now();
+    logger.info(`Executing ${moduleName} module...`);
+
+    switch (moduleName) {
+        case 'reconnaissance':
+            await runReconnaissance();
+            break;
+        case 'wallets':
+            await runWalletOperations();
+            break;
+        case 'automation':
+            await runAutomation();
+            break;
+        default:
+            logger.error(`Module ${moduleName} not recognized.`);
+    }
+
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    logger.info(`${moduleName} module completed in ${duration}ms.`);
+}
+
+// Function to run reconnaissance
+async function runReconnaissance() {
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.goto('https://example.com');
+    const output = await page.content();
+    await browser.close();
+
+    // Ensure dist directory exists before writing
+    const distDir = path.join(__dirname, '../dist');
+    if (!fs.existsSync(distDir)) {
+        fs.mkdirSync(distDir, { recursive: true });
+    }
+
+    fs.writeFileSync(path.join(distDir, 'reconnaissance.html'), output);
+    logger.info('Reconnaissance output saved to dist/reconnaissance.html');
+}
+
+// Function to run wallet operations
+async function runWalletOperations() {
+    const provider = new ethers.providers.JsonRpcProvider('https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID');
+    const privateKey = process.env.PRIVATE_KEY;
+    const wallet = new ethers.Wallet(privateKey, provider);
+    const balance = await wallet.getBalance();
+    logger.info(`Wallet balance: ${balance.toString()}`);
+}
+
+// Function to run automation (Corrected relative path out of 'core' into 'modules')
+async function runAutomation() {
+    const pythonScriptPath = path.join(__dirname, '../modules/automation/discord-bot.py');
+    exec(`python ${pythonScriptPath}`, (error, stdout, stderr) => {
+        if (error) {
+            logger.error(`Error executing Python script: ${error}`);
+            return;
+        }
+        if (stdout) logger.info(stdout.trim());
+        if (stderr) logger.error(stderr.trim());
+    });
+}
+
+// Logger initialization
+logger.init('protection-browse.log');
